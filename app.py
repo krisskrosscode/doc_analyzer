@@ -34,6 +34,94 @@ def allowed_file(filename):
 def index():
     return render_template('index.html')
 
+@app.route('/inspection_assist')
+def generate_questions():
+    ai_response = ""
+    clauses = ["Recovery  plans  shall be updated  and  improved  to  incorporate  lessons learned from cybersecurity incidents", 
+               "REs  shall  formulate strategies  to  anticipate  new  attack  vectors  by removing   or   applying   new   controls to   compensate   for   identified vulnerabilities or weaknesses, reducing or manipulating attack surfaces, and   proactively   orienting   controls,   practices,   and   capabilities   to prospective, emerging, or potential threats.", 
+               "Cybersecurity  incidents shall  be categorized in-line with categorization given in RE’s CCMP"]  # Example clause list
+    ai_response = process_clause()
+    return render_template('inspection_assist.html', clauses=clauses, ai_response=ai_response)
+
+@app.route('/process_clause', methods=['POST'])
+def process_clause():
+
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form.to_dict()
+    selected_clause = data.get('clause')
+    
+    if not selected_clause:
+        return jsonify({'error': 'No clause selected'}), 400
+
+    # Prepare prompt for the LLM
+    # prompt = f"You are a regulatory compliance expert carrying out inspection of one of your regulated entities (RE). The REs have to comply to clauses mandated by you. Please generate 5 questions that you can ask the RE to check the compliance with this clause: \n\n{selected_clause}. Also provide detailed steps to check the compliance by asking their teams to show their systems and documents and see what to check."
+    prompt = f"You are a National Stock Market Regulator. You have been given a task to inspect an entity regulated by you by going on site. Here is a clause from a cybersecurity circular published by you. It is to complied by the entity regulated by you. Please generate 5 questions that you can ask the entity to check the compliance with this clause: \n\n{selected_clause}. Also provide detailed steps to check the compliance by asking their teams to show their systems and documents and see what to check."
+    try:
+       
+        response = requests.post('http://localhost:11434/api/generate',
+                               json={
+                                   "model": "zysec:latest", 
+                                   "prompt": prompt,
+                                   "stream": False
+                               })
+       
+        if response.status_code == 200:
+            llm_response = response.json()['response']
+        
+            return jsonify({'response': llm_response})
+        else:
+            return jsonify({'error': 'Failed to get response from LLM server'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/audit_report_analysis')
+def audit_report_analysis():
+    ai_response = ""
+    clauses = ["Recovery  plans  shall be updated  and  improved  to  incorporate  lessons learned from cybersecurity incidents", 
+               "REs  shall  formulate strategies  to  anticipate  new  attack  vectors  by removing   or   applying   new   controls to   compensate   for   identified vulnerabilities or weaknesses, reducing or manipulating attack surfaces, and   proactively   orienting   controls,   practices,   and   capabilities   to prospective, emerging, or potential threats.", 
+               "Cybersecurity  incidents shall  be categorized in-line with categorization given in RE’s CCMP"]  # Example clause list
+    ai_response = report_rag()
+    return render_template('audit_report_analysis.html', clauses=clauses, ai_response=ai_response)
+
+@app.route('/report_rag', methods=['POST'])
+def report_rag():
+
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form.to_dict()
+    selected_clause = data.get('clause')
+    
+    if not selected_clause:
+        return jsonify({'error': 'No clause selected'}), 400
+
+    file_content = session.get('file_content', '')
+    # Prepare prompt for the LLM
+    # prompt = f"You are a regulatory compliance expert carrying out cybersecurity inspection of one of your regulated entities (RE). The REs have to comply to clauses mandated by you. Please generate 5 questions that you can ask the RE to check the compliance with this clause: \n\n{selected_clause}. Also provide detailed steps to check the compliance by asking their teams to show their systems and documents and see what to check."
+    prompt = f"You are a National Stock Market Regulator. You have been given a task to check cybersecurity compliance an entity regulated by you by going on site. Here is a clause from a cybersecurity circular published by you.  \n\n{selected_clause}. Check if the compliace of the clause is being checked in the cybersecurity audit report uploaded as {file_content}. Strictly give your comments only when relevant details i.e. compliance with report to the clause written in {selected_clause} are found in the {file_content}, Otherwise return result saying the details are not covered in the report"
+    try:
+       
+        response = requests.post('http://localhost:11434/api/generate',
+                               json={
+                                   "model": "zysec:latest", 
+                                   "prompt": prompt,
+                                   "stream": False
+                               })
+       
+        if response.status_code == 200:
+            llm_response = response.json()['response']
+        
+            return jsonify({'response': llm_response})
+        else:
+            return jsonify({'error': 'Failed to get response from LLM server'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:

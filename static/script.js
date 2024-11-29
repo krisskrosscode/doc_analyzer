@@ -292,4 +292,6 @@ document.addEventListener('DOMContentLoaded', () => {
             await clearAll();
         }
     });
+
+
 });
